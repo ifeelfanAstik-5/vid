@@ -1,0 +1,33 @@
+# Orchestration
+langgraph>=0.3.0
+langgraph-checkpoint-sqlite>=2.0.0
+
+# API server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# Config & validation
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+python-dotenv>=1.0.0
+
+# Google AI — unified SDK for Gemini + Vertex AI
+google-genai>=1.16.0
+google-cloud-storage>=2.16.0
+
+# Document parsing
+pypdf>=4.3.0
+python-docx>=1.1.0
+chardet>=5.2.0
+
+# Video/image processing
+ffmpeg-python>=0.2.0
+Pillow>=10.3.0
+
+# Reliability
+tenacity>=8.3.0
+
+# Dev/test
+pytest>=8.2.0
+pytest-asyncio>=0.23.0

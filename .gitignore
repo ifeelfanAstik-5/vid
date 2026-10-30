@@ -1,0 +1,40 @@
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# Virtual Environment & Python
+.venv/
+venv/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+
+# Databases & Checkpoints
+checkpoints.sqlite
+checkpoints.sqlite*
+*.db
+*.sqlite
+
+# Media Artifacts & Outputs
+artifacts/
+output/
+samples/output/
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.mp3
+*.wav
+
+# Node / Frontend UI
+ui/node_modules/
+ui/dist/
+ui/.vite/
+
+# Logs
+*.log
