@@ -163,7 +163,25 @@ async def generate(
 @router.get("/status/{run_id}")
 def status(run_id: str):
     if run_id not in JOBS:
-        raise HTTPException(status_code=404, detail="Job not found")
+        # Check if job exists on disk from prior run
+        run_art_dir = os.path.join(settings.artifacts_dir, run_id)
+        run_out_dir = os.path.join(settings.output_dir, run_id)
+        if os.path.exists(run_art_dir) or os.path.exists(run_out_dir):
+            final_disk = os.path.join(run_out_dir, "final.mp4")
+            JOBS[run_id] = {
+                "status": "completed" if os.path.exists(final_disk) else "running",
+                "current_node": "editor" if os.path.exists(final_disk) else "starting",
+                "final_video": final_disk if os.path.exists(final_disk) else None,
+                "input_format": "txt",
+                "input_file": os.path.join(run_art_dir, "input.txt"),
+                "artifacts_url": f"/artifacts/{run_id}",
+                "story_bible": None,
+                "scene_plan": [],
+                "character_anchors": {},
+                "scenes": [],
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Job not found")
 
     job = JOBS[run_id]
 
