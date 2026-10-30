@@ -25,6 +25,10 @@ export default function App() {
   const [jobStatus, setJobStatus] = useState(null)
   const [errorMsg, setErrorMsg] = useState('')
 
+  // Studio Access Token State
+  const [accessToken, setAccessToken] = useState(() => localStorage.getItem('studio_access_token') || '')
+  const [savedTokenMsg, setSavedTokenMsg] = useState('')
+
   // GPU Endpoint Management State
   const [gpuStatus, setGpuStatus] = useState({ deployed: false, loading: true })
   const [undeploying, setUndeploying] = useState(false)
@@ -86,7 +90,10 @@ export default function App() {
     }
     setUndeploying(true)
     try {
-      const res = await fetch('/api/v1/endpoint/undeploy', { method: 'POST' })
+      const res = await fetch('/api/v1/endpoint/undeploy', {
+        method: 'POST',
+        headers: { 'X-Access-Token': accessToken },
+      })
       const data = await res.json()
       if (res.ok) {
         alert(data.message || 'Undeploy initiated successfully.')
@@ -105,6 +112,10 @@ export default function App() {
   const handleEstimate = async (e) => {
     e.preventDefault()
     setErrorMsg('')
+    if (!accessToken.trim()) {
+      setErrorMsg('🔐 Studio Access Token required: Please enter your access token in the bar above to unlock generation.')
+      return
+    }
     if (!selectedFile && !textContent.trim()) {
       setErrorMsg('Please upload a file or write a story excerpt.')
       return
@@ -121,6 +132,9 @@ export default function App() {
     try {
       const res = await fetch('/api/v1/estimate', {
         method: 'POST',
+        headers: {
+          'X-Access-Token': accessToken,
+        },
         body: formData,
       })
 
@@ -149,6 +163,9 @@ export default function App() {
     try {
       const res = await fetch(`/api/v1/confirm/${draftData.draft_id}`, {
         method: 'POST',
+        headers: {
+          'X-Access-Token': accessToken,
+        },
       })
 
       if (!res.ok) {
@@ -217,6 +234,25 @@ One by one, the trees opened their emerald leaves, rejoicing as the sun broke th
             {undeploying ? 'Undeploying...' : 'Undeploy GPU (Stop Billing)'}
           </button>
         )}
+      </div>
+
+      {/* Studio Access Token Input Bar */}
+      <div className="token-bar">
+        <span className="token-label">🔐 Studio Access Token:</span>
+        <input
+          type="password"
+          className="token-input"
+          placeholder="Enter authorization token to unlock generation..."
+          value={accessToken}
+          onChange={(e) => {
+            const val = e.target.value
+            setAccessToken(val)
+            localStorage.setItem('studio_access_token', val)
+            setSavedTokenMsg('Token Saved')
+            setTimeout(() => setSavedTokenMsg(''), 2500)
+          }}
+        />
+        {savedTokenMsg && <span className="token-saved-tag">✓ {savedTokenMsg}</span>}
       </div>
 
       <div className="grid-layout">

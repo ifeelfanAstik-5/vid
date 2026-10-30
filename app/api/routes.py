@@ -2,7 +2,7 @@ import os
 import shutil
 import uuid
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, BackgroundTasks, HTTPException, Header, Depends
 from fastapi.responses import FileResponse
 
 from app.pipeline.runner import run_pipeline
@@ -19,15 +19,25 @@ DRAFTS: dict[str, dict] = {}
 ALLOWED_FORMATS = {"pdf", "txt", "docx"}
 
 
+def verify_access_token(x_access_token: Optional[str] = Header(None, alias="X-Access-Token")):
+    """Security guardrail: protect video generation and GPU billing actions with studio access token."""
+    if settings.studio_access_token and settings.studio_access_token.strip():
+        if not x_access_token or x_access_token.strip() != settings.studio_access_token.strip():
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized: Valid Studio Access Token required to run generation or GPU operations."
+            )
+
+
 @router.get("/endpoint/status")
 def endpoint_status():
-    """Get Vertex AI Dedicated Endpoint deployment and model status."""
+    """Get Vertex AI Dedicated Endpoint deployment and model status (Publicly viewable)."""
     return get_endpoint_status()
 
 
 @router.post("/endpoint/undeploy")
-def endpoint_undeploy():
-    """Undeploy model from the dedicated Vertex AI endpoint to stop GPU hourly billing."""
+def endpoint_undeploy(_auth: None = Depends(verify_access_token)):
+    """Undeploy model from the dedicated Vertex AI endpoint (Protected by token)."""
     res = undeploy_endpoint_model()
     if not res.get("success"):
         raise HTTPException(status_code=500, detail=res.get("error", "Failed to undeploy endpoint"))
@@ -38,8 +48,9 @@ def endpoint_undeploy():
 async def estimate_cost(
     file: Optional[UploadFile] = File(None),
     text_content: Optional[str] = Form(None),
+    _auth: None = Depends(verify_access_token),
 ):
-    """Phase 1: Ingest input story, plan scenes with Director agent, and compute cost estimate with guardrails."""
+    """Phase 1: Ingest input story, plan scenes with Director agent, and compute cost estimate (Protected by token)."""
     draft_id = str(uuid.uuid4())
     draft_dir = os.path.join(settings.artifacts_dir, f"draft_{draft_id}")
     os.makedirs(draft_dir, exist_ok=True)
@@ -99,6 +110,7 @@ async def estimate_cost(
 async def confirm_and_generate(
     draft_id: str,
     background_tasks: BackgroundTasks,
+    _auth: None = Depends(verify_access_token),
 ):
     """Phase 2: User confirms the cost estimate. Enforces hard budget block before starting video pipeline."""
     if draft_id not in DRAFTS:
@@ -153,6 +165,7 @@ async def generate(
     background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
     text_content: Optional[str] = Form(None),
+    _auth: None = Depends(verify_access_token),
 ):
     """Legacy direct generate endpoint: estimates and starts immediately if within hard limit."""
     estimate_result = await estimate_cost(file=file, text_content=text_content)

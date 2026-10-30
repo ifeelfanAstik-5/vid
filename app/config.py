@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # Gemini / Google AI
     gemini_api_key: str = ""
 
+    # Security: Studio Access Token (Locks generation & GPU actions)
+    studio_access_token: str = "VID_STUDIO_TOKEN_2026_X9Q7"
+
     # Model identifiers
     llm_heavy: str = "gemini-flash-lite-latest"
     llm_light: str = "gemini-flash-lite-latest"
