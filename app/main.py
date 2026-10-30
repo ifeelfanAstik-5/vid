@@ -31,3 +31,9 @@ app.include_router(router, prefix="/api/v1")
 @app.get("/health")
 def health():
     return {"status": "ok", "version": "0.1.0"}
+
+
+# If compiled React UI exists, serve it at root
+ui_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ui", "dist"))
+if os.path.exists(ui_dist):
+    app.mount("/", StaticFiles(directory=ui_dist, html=True), name="static-ui")

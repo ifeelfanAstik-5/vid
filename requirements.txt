@@ -1,6 +1,7 @@
 # Orchestration
 langgraph>=0.3.0
 langgraph-checkpoint-sqlite>=2.0.0
+aiosqlite>=0.20.0
 
 # API server
 fastapi>=0.115.0
@@ -12,9 +13,11 @@ pydantic>=2.7.0
 pydantic-settings>=2.3.0
 python-dotenv>=1.0.0
 
-# Google AI — unified SDK for Gemini + Vertex AI
+# Google AI & Cloud
 google-genai>=1.16.0
 google-cloud-storage>=2.16.0
+google-auth>=2.29.0
+requests>=2.31.0
 
 # Document parsing
 pypdf>=4.3.0
