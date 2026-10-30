@@ -1,7 +1,18 @@
 import os
+import subprocess
 import ffmpeg
 from app.config import settings
 from app.pipeline.state import PipelineState
+
+
+def has_audio_stream(filepath: str) -> bool:
+    """Check if a video clip contains its own native audio stream (e.g. Veo AI sound)."""
+    try:
+        cmd = ["ffprobe", "-v", "error", "-show_streams", "-select_streams", "a", filepath]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        return bool(res.stdout.strip())
+    except Exception:
+        return False
 
 
 def run(state: PipelineState) -> dict:
@@ -11,7 +22,7 @@ def run(state: PipelineState) -> dict:
 
     print(f"[Editor] Starting video assembly for run {run_id}...")
 
-    # Stage 1: Mix each clip with duration and background music
+    # Stage 1: Mix each clip. Prioritize native AI audio from Veo clips!
     mixed_clips = []
     for clip_path, audio, plan in zip(
         state.get("video_clip_paths", []),
@@ -21,28 +32,40 @@ def run(state: PipelineState) -> dict:
         duration = plan.get("estimated_duration_sec", settings.scene_duration_sec)
         out_clip = clip_path.replace("clip.mp4", "mixed.mp4")
 
-        v = ffmpeg.input(clip_path, stream_loop=-1, t=duration).video
+        has_native_audio = has_audio_stream(clip_path)
 
-        music_path = audio.get("music_local_path")
-        if music_path and os.path.exists(music_path):
-            # Keep audio at 95% full broadcast volume with 192k aac
-            a = ffmpeg.input(music_path, stream_loop=-1, t=duration).audio.filter("volume", 0.95)
-            out_stream = ffmpeg.output(
-                v, a, out_clip,
-                vcodec="libx264", acodec="aac", audio_bitrate="192k",
-                t=duration, crf=20, preset="fast"
-            )
+        if has_native_audio:
+            # 1. Veo clip already has rich native AI sound effects/audio -> Use it directly!
+            print(f"[Editor] Preserving native Veo AI audio for {os.path.basename(os.path.dirname(clip_path))}")
+            inp = ffmpeg.input(clip_path, t=duration)
+            v = inp.video
+            a = inp.audio.filter("aformat", sample_fmts="fltp", sample_rates=48000, channel_layouts="stereo")
         else:
-            out_stream = ffmpeg.output(
-                v, out_clip,
-                vcodec="libx264",
+            # 2. Fallback motion clip without audio -> Use ambient background audio bed
+            v = ffmpeg.input(clip_path, loop=1, t=duration).video
+            music_path = audio.get("music_local_path")
+            if music_path and os.path.exists(music_path):
+                a = (
+                    ffmpeg.input(music_path, loop=1, t=duration)
+                    .audio
+                    .filter("volume", 0.45)
+                    .filter("aformat", sample_fmts="fltp", sample_rates=48000, channel_layouts="stereo")
+                )
+            else:
+                a = ffmpeg.input("anullsrc=r=48000:cl=stereo", f="lavfi", t=duration).audio
+
+        (
+            ffmpeg.output(
+                v, a, out_clip,
+                vcodec="libx264", acodec="aac", audio_bitrate="256k",
                 t=duration, crf=20, preset="fast"
             )
-
-        out_stream.overwrite_output().run(quiet=True)
+            .overwrite_output()
+            .run(quiet=True)
+        )
         mixed_clips.append(out_clip)
 
-    # Stage 2: Concat clips
+    # Stage 2: Concat clips with unified stream specs
     concat_txt = os.path.join(out_dir, "concat.txt")
     with open(concat_txt, "w", encoding="utf-8") as f:
         for c in mixed_clips:
@@ -84,8 +107,7 @@ def run(state: PipelineState) -> dict:
                     stream.audio,
                     final_path,
                     vcodec="libx264",
-                    acodec="aac",
-                    audio_bitrate="192k",
+                    acodec="copy",
                     crf=20,
                     preset="medium"
                 )
@@ -106,8 +128,7 @@ def run(state: PipelineState) -> dict:
                 stream.audio,
                 final_path,
                 vcodec="libx264",
-                acodec="aac",
-                audio_bitrate="192k",
+                acodec="copy",
                 crf=20,
                 preset="medium"
             )
